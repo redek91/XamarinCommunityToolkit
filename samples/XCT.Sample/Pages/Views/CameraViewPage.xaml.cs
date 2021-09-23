@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using Xamarin.CommunityToolkit.UI.Views;
 using Xamarin.Forms;
 
@@ -36,12 +37,33 @@ namespace Xamarin.CommunityToolkit.Sample.Pages.Views
 		}
 
 		// You can also set it to Default and External
-		void FrontCameraSwitch_Toggled(object? sender, ToggledEventArgs e)
-			=> cameraView.CameraOptions = e.Value ? CameraOptions.Front : CameraOptions.Back;
+		void Camera_Changed(object? sender, CheckedChangedEventArgs e)
+		{
+			if(sender != null && e.Value)
+			{
+				var selectedRadioBtn = sender as RadioButton;
+
+				switch (selectedRadioBtn?.Content)
+				{
+					case "Front":
+						cameraView.CameraOptions = CameraOptions.Front;
+						break;
+					case "Back":
+						cameraView.CameraOptions = CameraOptions.Back;
+						break;
+					case "External":
+						cameraView.CameraOptions = CameraOptions.External;
+						break;
+				}
+			}
+		}
 
 		// You can also set it to Torch (always on) and Auto
 		void FlashSwitch_Toggled(object? sender, ToggledEventArgs e)
 			=> cameraView.FlashMode = e.Value ? CameraFlashMode.On : CameraFlashMode.Off;
+
+		void EnablePreview_Toggled(object? sender, ToggledEventArgs e)
+			=> cameraView.IsPreviewEnabled = e.Value;
 
 		void DoCameraThings_Clicked(object? sender, EventArgs e)
 		{
@@ -49,6 +71,13 @@ namespace Xamarin.CommunityToolkit.Sample.Pages.Views
 			doCameraThings.Text = cameraView.CaptureMode == CameraCaptureMode.Video
 				? "Stop Recording"
 				: "Snap Picture";
+		}
+
+		void CameraView_OnRecording(object? sender, bool e)
+		{
+			previewSwitch.IsEnabled = !e;
+			camerasRadioButtonGroup.IsEnabled = !e;
+			videoSwitch.IsEnabled = !e;
 		}
 
 		void CameraView_OnAvailable(object? sender, bool e)
@@ -65,6 +94,8 @@ namespace Xamarin.CommunityToolkit.Sample.Pages.Views
 
 			doCameraThings.IsEnabled = e;
 			zoomSlider.IsEnabled = e;
+			flashSwitch.IsEnabled = e;
+			videoSwitch.IsEnabled = e;
 		}
 
 		void CameraView_MediaCaptured(object? sender, MediaCapturedEventArgs e)
