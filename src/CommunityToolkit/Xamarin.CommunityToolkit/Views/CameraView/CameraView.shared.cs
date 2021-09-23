@@ -15,6 +15,8 @@ namespace Xamarin.CommunityToolkit.UI.Views
 
 		public event EventHandler<bool>? OnAvailable;
 
+		public event EventHandler<bool>? OnRecording;
+
 		internal event EventHandler? ShutterClicked;
 
 		internal static readonly BindablePropertyKey ShutterCommandPropertyKey =
@@ -44,6 +46,38 @@ namespace Xamarin.CommunityToolkit.UI.Views
 		{
 			get => (bool)GetValue(IsAvailableProperty);
 			set => SetValue(IsAvailableProperty, value);
+		}
+
+		public static readonly BindableProperty IsRecordingProperty = BindableProperty.Create(nameof(IsRecording), typeof(bool), typeof(CameraView), false, propertyChanged: (b, o, n) => ((CameraView)b).OnRecording?.Invoke(b, (bool)n));
+
+		public bool IsRecording
+		{
+			get => (bool)GetValue(IsRecordingProperty);
+			set => SetValue(IsRecordingProperty, value);
+		}
+
+		public static readonly BindableProperty IsCameraAvailableProperty = BindableProperty.Create(nameof(IsCameraAvailable), typeof(bool), typeof(CameraView), false);
+
+		public bool IsCameraAvailable
+		{
+			get => (bool)GetValue(IsCameraAvailableProperty);
+			set
+			{
+				SetValue(IsCameraAvailableProperty, value);
+				SetValue(IsAvailableProperty, IsPreviewEnabled && value);
+			}
+		}
+
+		public static readonly BindableProperty IsPreviewEnabledProperty = BindableProperty.Create(nameof(IsPreviewEnabled), typeof(bool), typeof(CameraView), true);
+
+		public bool IsPreviewEnabled
+		{
+			get => (bool)GetValue(IsPreviewEnabledProperty);
+			set
+			{
+				SetValue(IsPreviewEnabledProperty, value);
+				SetValue(IsAvailableProperty, IsCameraAvailable && value);
+			}
 		}
 
 		public static readonly BindableProperty CameraOptionsProperty = BindableProperty.Create(nameof(CameraOptions), typeof(CameraOptions), typeof(CameraView), CameraOptions.Default);

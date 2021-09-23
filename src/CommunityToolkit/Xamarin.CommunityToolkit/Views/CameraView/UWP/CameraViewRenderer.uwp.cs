@@ -29,7 +29,6 @@ namespace Xamarin.CommunityToolkit.UI.Views
 		readonly MediaEncodingProfile encodingProfile;
 
 		MediaCapture? mediaCapture;
-		bool isPreviewing;
 		Lamp? flash;
 		LowLagMediaRecording? mediaRecording;
 		string? filePath;
@@ -50,19 +49,34 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			}
 		}
 
-		bool Available
+		bool IsCameraAvailable
 		{
-			get => Element?.IsAvailable ?? false;
+			get => Element?.IsCameraAvailable ?? false;
 			set
 			{
-				if (Element != null && Element.IsAvailable != value)
-					Element.IsAvailable = value;
+				if (Element != null && Element.IsCameraAvailable != value)
+					Element.IsCameraAvailable = value;
 			}
+		}
+
+		bool IsRecording
+		{
+			get => Element?.IsRecording ?? false;
+			set
+			{
+				if (Element != null && Element.IsRecording != value)
+					Element.IsRecording = value;
+			}
+		}
+
+		bool IsPreviewEnabled
+		{
+			get => Element?.IsPreviewEnabled ?? false;
 		}
 
 		protected override async void OnElementChanged(ElementChangedEventArgs<CameraView> e)
 		{
-			Available = false;
+			IsCameraAvailable = false;
 			base.OnElementChanged(e);
 			if (e.OldElement != null)
 			{
@@ -84,7 +98,6 @@ namespace Xamarin.CommunityToolkit.UI.Views
 
 				e.NewElement.ShutterClicked += HandleShutter;
 
-				isPreviewing = false;
 				await InitializeCameraAsync();
 
 				if (mediaCapture != null)
@@ -94,7 +107,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 
 		async void HandleShutter(object? sender, EventArgs e)
 		{
-			if (IsBusy)
+			if (IsBusy || !IsCameraAvailable)
 				return;
 
 			IsBusy = true;
@@ -120,9 +133,15 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			async Task HandleVideo()
 			{
 				if (mediaRecording == null)
+				{
+					IsRecording = true;
 					await StartRecord();
+				}
 				else
+				{
+					IsRecording = false;
 					Element.RaiseMediaCaptured(new MediaCapturedEventArgs(await StopRecord()));
+				}
 			}
 		}
 
@@ -260,6 +279,20 @@ namespace Xamarin.CommunityToolkit.UI.Views
 				case nameof(CameraView.Zoom):
 					UpdateZoom();
 					break;
+
+				case nameof(CameraView.IsPreviewEnabled):
+					if (IsCameraAvailable)
+					{
+						if (IsPreviewEnabled)
+						{
+							await mediaCapture?.StartPreviewAsync();
+						}
+						else
+						{
+							await mediaCapture?.StopPreviewAsync();
+						}
+					}
+					break;
 			}
 			base.OnElementPropertyChanged(sender, e);
 		}
@@ -297,7 +330,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 		{
 			foreach (var cam in cameraDevices)
 			{
-				if (cam.EnclosureLocation?.Panel == panel)
+				if (cam.EnclosureLocation?.Panel == panel || (panel == Windows.Devices.Enumeration.Panel.Unknown && cam.EnclosureLocation == null))
 					return cam;
 			}
 			return null;
@@ -305,7 +338,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 
 		async Task InitializeCameraAsync()
 		{
-			Available = false;
+			IsCameraAvailable = false;
 			if (mediaCapture != null)
 				return;
 
@@ -364,10 +397,12 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			try
 			{
 				Control.Source = mediaCapture;
-				await mediaCapture.StartPreviewAsync();
-				isPreviewing = false;
+				if (IsPreviewEnabled)
+				{
+					await mediaCapture.StartPreviewAsync();
+				}
 				IsBusy = false;
-				Available = true;
+				IsCameraAvailable = true;
 			}
 			catch (COMException)
 			{
@@ -381,12 +416,12 @@ namespace Xamarin.CommunityToolkit.UI.Views
 
 		async Task CleanupCameraAsync()
 		{
-			Available = false;
+			IsCameraAvailable = false;
 			IsBusy = true;
 			if (mediaCapture == null)
 				return;
 
-			if (isPreviewing)
+			if (IsPreviewEnabled)
 				await mediaCapture.StopPreviewAsync();
 
 			if (mediaRecording != null)
@@ -415,7 +450,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			{
 				Element?.RaiseMediaCaptureFailed("The camera preview can't be displayed because another app has exclusive access");
 			}
-			else if (args.Status == MediaCaptureDeviceExclusiveControlStatus.ExclusiveControlAvailable && !isPreviewing)
+			else if (args.Status == MediaCaptureDeviceExclusiveControlStatus.ExclusiveControlAvailable && IsPreviewEnabled)
 			{
 				await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
 				{

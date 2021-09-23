@@ -18,6 +18,7 @@ using Xamarin.Forms;
 using Xamarin.CommunityToolkit.UI.Views;
 using System.Reflection;
 using System.Threading.Tasks;
+using System.Threading;
 
 [assembly: ExportRenderer(typeof(CameraView), typeof(CameraViewRenderer))]
 
@@ -59,11 +60,11 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			switch (e.PropertyName)
 			{
 				case nameof(CameraView.CameraOptions):
-					await camerafragment.RetrieveCameraDevice();
+					await InitializeCameraAsync();
 					break;
 				case nameof(CameraView.CaptureMode):
 					camerafragment.UpdateCaptureOptions();
-					await camerafragment.RetrieveCameraDevice();
+					await InitializeCameraAsync();
 					break;
 				case nameof(CameraView.FlashMode):
 					camerafragment.SetFlash();
@@ -80,14 +81,30 @@ namespace Xamarin.CommunityToolkit.UI.Views
 						camerafragment.UpdateRepeatingRequest();
 					break;
 
-					// case nameof(CameraView.PreviewAspect):
-					// case "MirrorFrontPreview":
-					// camerafragment?.ConfigureTransform();
-					// break;
-					// case nameof(CameraView.KeepScreenOn):
-					// if (camerafragment != null)
-					// camerafragment.KeepScreenOn = Element.KeepScreenOn;
-					// break;
+				// case nameof(CameraView.PreviewAspect):
+				// case "MirrorFrontPreview":
+				// camerafragment?.ConfigureTransform();
+				// break;
+				// case nameof(CameraView.KeepScreenOn):
+				// if (camerafragment != null)
+				// camerafragment.KeepScreenOn = Element.KeepScreenOn;
+				// break;
+
+				case nameof(CameraView.IsPreviewEnabled):
+					if (Element?.IsCameraAvailable ?? false)
+					{
+						if (Element?.IsPreviewEnabled == true)
+						{
+							await InitializeCameraAsync();
+							Visibility = ViewStates.Visible;
+						}
+						else
+						{
+							Visibility = ViewStates.Invisible;
+							camerafragment.CloseDevice();
+						}
+					}
+					break;
 			}
 		}
 
@@ -148,6 +165,16 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			return motionEventHelper.HandleMotionEvent(Parent, e);
 		}
 
+		async Task InitializeCameraAsync()
+		{
+			_ = camerafragment ?? throw new NullReferenceException();
+
+			if (Element?.IsPreviewEnabled == true)
+			{
+				await camerafragment.RetrieveCameraDevice();
+			}
+		}
+
 		protected override void Dispose(bool disposing)
 		{
 			if (disposed)
@@ -189,15 +216,25 @@ namespace Xamarin.CommunityToolkit.UI.Views
 
 		async void OnShutterClicked(object? sender, EventArgs e)
 		{
+			_ = camerafragment ?? throw new NullReferenceException();
+
+			if (Element?.IsPreviewEnabled == false)
+			{
+				await camerafragment.RetrieveCameraDevice();
+				Console.WriteLine(Element?.IsAvailable);
+			}
+
 			switch (Element?.CaptureMode)
 			{
 				default:
 				case CameraCaptureMode.Default:
 				case CameraCaptureMode.Photo:
 					camerafragment?.TakePhoto();
+					if (Element?.IsPreviewEnabled == false)
+						camerafragment?.CloseDevice();
 					break;
 				case CameraCaptureMode.Video:
-					if (camerafragment?.IsRecordingVideo is false)
+					if (Element?.IsRecording == false)
 						camerafragment?.StartRecord();
 					else
 						await (camerafragment?.StopRecord() ?? Task.CompletedTask);

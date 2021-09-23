@@ -64,7 +64,6 @@ namespace Xamarin.CommunityToolkit.UI.Views
 		int sensorOrientation;
 		LensFacing cameraType;
 
-		bool busy;
 		bool flashSupported;
 		bool stabilizationSupported;
 		bool repeatingIsRunning;
@@ -96,26 +95,33 @@ namespace Xamarin.CommunityToolkit.UI.Views
 
 		bool IsBusy
 		{
-			get => device == null || busy;
+			get => device == null || (Element?.IsBusy ?? false);
 			set
 			{
-				busy = value;
 				if (Element != null)
 					Element.IsBusy = value;
 			}
 		}
 
-		bool Available
+		bool IsCameraAvailable
 		{
-			get => Element?.IsAvailable ?? false;
+			get => Element?.IsCameraAvailable ?? false;
 			set
 			{
-				if (Element != null && Element.IsAvailable != value)
-					Element.IsAvailable = value;
+				if (Element != null && Element.IsCameraAvailable != value)
+					Element.IsCameraAvailable = value;
 			}
 		}
 
-		public bool IsRecordingVideo { get; set; }
+		bool IsRecording
+		{
+			get => Element?.IsRecording ?? false;
+			set
+			{
+				if (Element != null && Element.IsRecording != value)
+					Element.IsRecording = value;
+			}
+		}
 
 		bool UseSystemSound { get; set; }
 
@@ -311,7 +317,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 				catch (Java.Lang.Exception error)
 				{
 					LogError("Failed to open camera", error);
-					Available = false;
+					IsCameraAvailable = false;
 				}
 				finally
 				{
@@ -480,7 +486,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			{
 				return;
 			}
-			else if (IsRecordingVideo)
+			else if (IsRecording)
 			{
 				Element?.RaiseMediaCaptureFailed("Video already recording.");
 				return;
@@ -493,7 +499,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			else if (mediaRecorder == null)
 			{
 				Element?.RaiseMediaCaptureFailed($"Unexpected error: MediaRecorder is not initialized.");
-				IsRecordingVideo = false;
+				IsRecording = false;
 				return;
 			}
 
@@ -501,7 +507,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			{
 				Sound(MediaActionSoundType.StartVideoRecording);
 				mediaRecorder.Start();
-				IsRecordingVideo = true;
+				IsRecording = true;
 			}
 			catch (Java.Lang.Exception error)
 			{
@@ -513,7 +519,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 
 		public async Task StopRecord()
 		{
-			if (IsBusy || !IsRecordingVideo || session == null || mediaRecorder == null)
+			if (IsBusy || !IsRecording || session == null || mediaRecorder == null)
 				return;
 
 			try
@@ -528,7 +534,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			}
 			finally
 			{
-				IsRecordingVideo = false;
+				IsRecording = false;
 			}
 			try
 			{
@@ -614,12 +620,12 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			}
 			catch (Java.Lang.Exception error)
 			{
-				Available = false;
+				IsCameraAvailable = false;
 				LogError("Capture", error);
 			}
 			finally
 			{
-				Available = session != null;
+				IsCameraAvailable = session != null;
 				IsBusy = false;
 			}
 		}
@@ -770,6 +776,8 @@ namespace Xamarin.CommunityToolkit.UI.Views
 				return null;
 			}
 
+			var currentCameraMode = Element?.CameraOptions;
+
 			return Element?.CameraOptions switch
 			{
 				CameraOptions.Front => FilterCameraByLens(LensFacing.Front),
@@ -866,7 +874,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 		{
 			if (mediaRecorder != null)
 			{
-				if (IsRecordingVideo)
+				if (IsRecording)
 				{
 					mediaRecorder.Stop();
 					mediaRecorder.Reset();
@@ -875,7 +883,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 				mediaRecorder.Dispose();
 				mediaRecorder = null;
 			}
-			IsRecordingVideo = false;
+			IsRecording = false;
 		}
 
 		void DisposeImageReader()
